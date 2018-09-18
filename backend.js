@@ -2,7 +2,7 @@ const express = require('express');
 const net = require('net');
 
 const app = express();
-app.use(express.static("../web/dist"));
+app.use(express.static("."));
 
 const options = {
 	port: 8000,

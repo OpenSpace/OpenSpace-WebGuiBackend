@@ -64,6 +64,20 @@ if (autoClose) {
   // Connect to OpenSpace process.
   ws.on('open', (connection) => {
     console.log('Connected to local OpenSpace server');
+
+    // Ask the CefWebGui to reload if the module is enabled
+    // This is
+    ws.send(JSON.stringify(
+      {
+        topic: 0,
+        type: 'luascript',
+        payload: {
+          script: 'if (openspace.modules.isLoaded("CefWebGui")) then ' +
+            'openspace.setPropertyValueSingle("Modules.CefWebGui.Reload", nil) end',
+          value: null
+        }
+      }
+    ));
   });
 
   // Whenever the contact is lost, kill app.

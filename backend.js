@@ -9,18 +9,18 @@ program
   .option('-a, --ws-address <wsAddress>', 'Specify WebSocket address')
   .option('-w, --ws-port <wsPort>', 'Specify WebSocket port')
   .option('-d, --directory <directory>', 'Specify directory to serve')
-  .option('-l, --local', 'Specify if OpenSpace is running on localhost')
+  .option('-l, --local', 'Specify if OpenSpace is running on 127.0.0.1')
   .option(
     '-c, --auto-close',
     'Connect to OpenSpace server and shut down when connection is lost')
   .parse(process.argv);
 
 const httpPort = program.httpPort || 4680;
-const wsAddress = program.wsAddress || 'localhost';
+const wsAddress = program.wsAddress || '127.0.0.1';
 const wsPort = program.wsPort || 4682;
 const autoClose = program.autoClose;
 const local = program.local;
-const openSpaceAddress = local ? 'localhost' : wsAddress;
+const openSpaceAddress = local ? '127.0.0.1' : wsAddress;
 const directory = path.resolve(program.directory || '.');
 
 // Setup static HTTP Server
@@ -37,7 +37,7 @@ app.get('/environment.js', (req, res) => {
       address = clientAddress;
     }
     if (clientAddress == "::1") {
-      address = "localhost";
+      address = "127.0.0.1";
     }
   }
 

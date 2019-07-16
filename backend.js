@@ -1,14 +1,14 @@
 const express = require('express');
 const program = require('commander');
 const WebSocket = require('ws');
-const path = require("path");
+const flatMap = require('flatmap');
 
 program
   .version('0.1.0')
   .option('-p, --http-port <httpPort>', 'Specify http port')
   .option('-a, --ws-address <wsAddress>', 'Specify WebSocket address')
   .option('-w, --ws-port <wsPort>', 'Specify WebSocket port')
-  .option('-d, --directory <directory>', 'Specify directory to serve')
+  .option('-d, --directories <directories>', 'Specify directories to serve, on the format \'["endpoint1", "path1", "endpoint2, "path2",...]\'')
   .option('-l, --local', 'Specify if OpenSpace is running on 127.0.0.1')
   .option(
     '-c, --auto-close',
@@ -21,11 +21,31 @@ const wsPort = program.wsPort || 4682;
 const autoClose = program.autoClose;
 const local = program.local;
 const openSpaceAddress = local ? '127.0.0.1' : wsAddress;
-const directory = path.resolve(program.directory || '.');
+const directories = program.directories || '[]';
 
 // Setup static HTTP Server
 const app = express();
-app.use(express.static(directory));
+
+let endpoints = {};
+try {
+  const endpointList = JSON.parse(directories);
+  for (let i = 0; i < endpointList.length - 1; i += 2) {
+    endpoints[endpointList[i]] = endpointList[i + 1];
+  }
+} catch (e) {
+  console.error("Failed to parse endpoints: ", directories, e);
+  process.exit();
+}
+
+Object.entries(endpoints).forEach(pair => {
+  if (typeof pair[1] !== 'string') {
+    console.error('Expected ', pair[1], ' to be a string');
+    delete endpoints[pair[0]];
+    return;
+  }
+  app.use("/" + pair[0], express.static(pair[1]));
+});
+
 const server = app.listen(httpPort);
 
 app.get('/environment.js', (req, res) => {
@@ -45,13 +65,23 @@ app.get('/environment.js', (req, res) => {
     'window.OpenSpaceEnvironment = ' +
     JSON.stringify({
       wsAddress: address,
-      wsPort: wsPort
+      wsPort: wsPort,
     })
   );
 });
 
-console.log('Serving OpenSpace GUI');
-console.log("  Serving directory: " + directory);
+app.get('/', (req, res) => {
+  res.send(
+    "<h1>OpenSpace Endpoints</h1>" +
+    Object.entries(endpoints).map(pair => `<li><a href="/${pair[0]}">${pair[0]}</a></li>`).join('')
+  );
+})
+
+console.log('Serving OpenSpace web content');
+console.log("  Serving directories: ");
+Object.entries(endpoints).forEach(pair => {
+  console.log(`    ${pair[0]} : ${pair[1]}`);
+});
 console.log("  Http Port: " + httpPort);
 console.log("  WebSocket Address: " + wsAddress);
 console.log("  WebSocket Port: " + wsPort);
@@ -65,16 +95,15 @@ if (autoClose) {
   ws.on('open', (connection) => {
     console.log('Connected to local OpenSpace server');
 
-    // Ask the CefWebGui to reload if the module is enabled
-    // This is
+    // Notify OpenSpace about which directories that are served.
     ws.send(JSON.stringify(
       {
         topic: 0,
-        type: 'luascript',
+        type: 'set',
         payload: {
-          script: 'if (openspace.modules.isLoaded("CefWebGui")) then ' +
-            'openspace.setPropertyValueSingle("Modules.CefWebGui.Reload", nil) end',
-          value: null
+          property: 'Modules.WebGui.ServedDirectories',
+          value: flatMap(Object.entries(endpoints), p => [p[0], p[1]]
+          )
         }
       }
     ));

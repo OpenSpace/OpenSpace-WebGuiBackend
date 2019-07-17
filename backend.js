@@ -10,6 +10,7 @@ program
   .option('-w, --ws-port <wsPort>', 'Specify WebSocket port')
   .option('-d, --directories <directories>', 'Specify directories to serve, on the format \'["endpoint1", "path1", "endpoint2, "path2",...]\'')
   .option('-l, --local', 'Specify if OpenSpace is running on 127.0.0.1')
+  .option('-r, --redirect <endpoint>', 'Specify which of the endpoints that should recieve redirects from the base url (/)')
   .option(
     '-c, --auto-close',
     'Connect to OpenSpace server and shut down when connection is lost')
@@ -20,6 +21,7 @@ const wsAddress = program.wsAddress || '127.0.0.1';
 const wsPort = program.wsPort || 4682;
 const autoClose = program.autoClose;
 const local = program.local;
+const redirect = program.redirect || 'endpoints';
 const openSpaceAddress = local ? '127.0.0.1' : wsAddress;
 const directories = program.directories || '[]';
 
@@ -43,8 +45,18 @@ Object.entries(endpoints).forEach(pair => {
     delete endpoints[pair[0]];
     return;
   }
+  if (pair[0] == 'endpoints') {
+    console.error('"endpoints" is a reserved endpoint to list available endpoints');
+    delete endpoints[pair[0]];
+    return;
+  }
   app.use("/" + pair[0], express.static(pair[1]));
 });
+
+if (Object.keys(endpoints).length === 0) {
+  console.log("No directories to serve. Use --help for more info.");
+  process.exit();
+}
 
 const server = app.listen(httpPort);
 
@@ -70,12 +82,16 @@ app.get('/environment.js', (req, res) => {
   );
 });
 
-app.get('/', (req, res) => {
+app.get('/endpoints', (req, res) => {
   res.send(
     "<h1>OpenSpace Endpoints</h1>" +
     Object.entries(endpoints).map(pair => `<li><a href="/${pair[0]}">${pair[0]}</a></li>`).join('')
   );
-})
+});
+
+app.get('/', (req, res) => {
+  res.redirect('/' + redirect);
+});
 
 console.log('Serving OpenSpace web content');
 console.log("  Serving directories: ");

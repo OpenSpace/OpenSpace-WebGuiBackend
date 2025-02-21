@@ -1,2 +1,6 @@
 dist
 node_modules
+uploads
+projects
+showbuilder
+.DS_Store

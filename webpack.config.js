@@ -1,13 +1,16 @@
-const webpack = require('webpack');
-const path = require('path');
-const fs = require('fs');
+const webpack = require("webpack");
+const path = require("path");
+const fs = require("fs");
 
 module.exports = {
-  entry: './backend.js',
-  target: 'node',
-  output: {
-    path: path.join(__dirname, 'dist'),
-    filename: 'backend.js'
+  entry: {
+    backend: "./backend.js",
+    showbuilder: "./showbuilder.js",
   },
-  mode: "production"
-}
+  target: "node",
+  output: {
+    path: path.join(__dirname, "dist"),
+    filename: "[name].js",
+  },
+  mode: "production",
+};

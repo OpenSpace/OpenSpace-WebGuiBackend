@@ -77,9 +77,14 @@ if (Object.keys(endpoints).length === 0) {
   process.exit();
 }
 
+// Extract showbuilder specific endpoints
+const showbuilderEndpoints = {
+  uploads: endpoints["showbuilder/uploads"],
+  projects: endpoints["showbuilder/projects"],
+};
 // Call the function to set up file upload routes
 (async () => {
-  await setupShowbuilderRoutes(app);
+  await setupShowbuilderRoutes(app, showbuilderEndpoints);
 })();
 
 const server = app.listen(httpPort);

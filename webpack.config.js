@@ -3,11 +3,14 @@ const path = require("path");
 const fs = require("fs");
 
 module.exports = {
-  entry: "./backend.js",
+  entry: {
+    backend: "./backend.js",
+    showbuilder: "./showbuilder.js",
+  },
   target: "node",
   output: {
     path: path.join(__dirname, "dist"),
-    filename: "backend.js",
+    filename: "[name].js",
   },
   mode: "production",
 };

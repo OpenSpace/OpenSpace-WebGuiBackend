@@ -79,8 +79,8 @@ if (Object.keys(endpoints).length === 0) {
 
 // Extract showbuilder specific endpoints
 const showbuilderEndpoints = {
-  uploads: endpoints["showbuilder/uploads"],
-  projects: endpoints["showbuilder/projects"],
+  uploads: endpoints["showcomposer/uploads"],
+  projects: endpoints["showcomposer/projects"],
 };
 // Call the function to set up file upload routes
 (async () => {

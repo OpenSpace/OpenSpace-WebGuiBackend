@@ -79,26 +79,26 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
 
   // Upload endpoint
   app.post(
-    "/showbuilder/api/upload",
+    "/showcomposer/api/upload",
     imageUpload.single("image"),
     (req, res) => {
       if (!req.file) {
         return res.status(400).json({ error: "No file uploaded" });
       }
       res.json({
-        filePath: `./uploads/${req.file.filename}`,
+        filePath: `/uploads/${req.file.filename}`,
         fileName: req.file.filename,
       });
     }
   );
-
+  // node backend.js -d '["showcomposer","C:\\Users\\megaf\\Documents\\OpenSpace\\sync\\url\\showbuilder","showcomposer/uploads","C:\\Users\\megaf\\Documents\\OpenSpace\\user\\showbuilder\\uploads","showcomposer/projects","C:\\Users\\megaf\\Documents\\OpenSpace\\user\\showbuilder\\projects"]'
   // List all images endpoint
-  app.get("/showbuilder/api/images", async (req, res) => {
+  app.get("/showcomposer/api/images", async (req, res) => {
     try {
       const files = await fsp.readdir(uploadDir);
       const images = files
         .filter((file) => /\.(jpg|jpeg|png|gif)$/i.test(file))
-        .map((file) => `./uploads/${file}`);
+        .map((file) => `/uploads/${file}`);
       res.json({ images });
     } catch (error) {
       console.error("Error reading upload directory:", error);
@@ -110,7 +110,7 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
   // app.use("/showbuilder/uploads", express.static(uploadDir));
 
   // Modified package endpoint to return zip file directly
-  app.post("/showbuilder/api/package", express.json(), async (req, res) => {
+  app.post("/showcomposer/api/package", express.json(), async (req, res) => {
     try {
       const jsonData = req.body;
       console.log("JSON Data: ", jsonData);
@@ -171,11 +171,8 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
     }
   });
 
-  // // Serve project files statically
-  // app.use("/projects", express.static(projectsDir));
-
   app.post(
-    "/showbuilder/api/projects/save",
+    "/showcomposer/api/projects/save",
     express.json(),
     async (req, res) => {
       try {
@@ -199,7 +196,7 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
       }
     }
   );
-  app.get("/showbuilder/api/projects", async (req, res) => {
+  app.get("/showcomposer/api/projects", async (req, res) => {
     try {
       const files = await fsp.readdir(projectsDir);
 
@@ -210,10 +207,8 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
             const filePath = path.join(projectsDir, file);
             const stats = await fsp.stat(filePath); // Get file statistics
             return {
-              // filePath: "/" + path.relative(process.cwd(), filePath),
               filePath: `./projects/${file}`, //this needs to be relative url
               projectName: path.basename(file, ".json"),
-              // uploads: `./uploads/${file}`, //this needs to be relative url
               lastModified: stats.mtime, // Last modified date
               created: stats.birthtime, // Created date
             };
@@ -227,7 +222,7 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
   });
 
   app.post(
-    "/showbuilder/api/projects/load",
+    "/showcomposer/api/projects/load",
     zipUpload.single("file"),
     async (req, res) => {
       try {
@@ -235,8 +230,9 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
           return res.status(400).json({ error: "No zip file uploaded" });
         }
 
-        // Create a temporary directory for extraction
-        const tempDir = path.join(uploadDir, "temp_" + Date.now());
+        // Create a temporary directory with unique ID for extraction
+        const tempId = Date.now() + "_" + Math.round(Math.random() * 1e9);
+        const tempDir = path.join(uploadDir, "temp_" + tempId);
         await fsp.mkdir(tempDir, { recursive: true });
 
         // Extract zip file
@@ -247,54 +243,130 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
         const dataJsonPath = path.join(tempDir, "data.json");
         let projectData = JSON.parse(await fsp.readFile(dataJsonPath, "utf8"));
 
-        // Get list of existing images
-        const existingImages = await fsp.readdir(uploadDir);
-        const imageRenames = new Map(); // Track renamed images
+        // Add temp directory ID to project data for reference
+        projectData._tempImportId = tempId;
 
-        // Check for uploads directory and handle different possible structures
-        const uploadedImagesDir = path.join(tempDir, "uploads");
-        let uploadedImages = [];
+        // Clean up the uploaded zip file
+        await fsp.unlink(req.file.path);
 
-        try {
-          // Try to read the uploads directory
-          uploadedImages = await fsp.readdir(uploadedImagesDir);
-          console.log("Uploaded images: ", uploadedImages);
-        } catch (err) {
-          if (err.code === "ENOENT") {
-            // If "uploads" directory doesn't exist, check if images are in root of zip
-            const allFiles = await fsp.readdir(tempDir);
-            uploadedImages = allFiles.filter(
-              (file) =>
-                /\.(jpg|jpeg|png|gif)$/i.test(file) && file !== "data.json"
-            );
-            // If we found images in root, treat tempDir as the images directory
-            if (uploadedImages.length > 0) {
-              console.log("Found images in root of zip");
-              uploadedImagesDir = tempDir;
-            }
-          } else {
-            throw err; // Re-throw if it's a different error
-          }
+        // Send back the project data with temp ID
+        res.json(projectData);
+      } catch (error) {
+        console.error("Error processing uploaded project:", error);
+        // Clean up temp directory if it exists
+        if (tempDir) {
+          await fsp
+            .rm(tempDir, { recursive: true, force: true })
+            .catch(console.error);
+        }
+        // Clean up uploaded file if it exists
+        if (req.file?.path) {
+          await fsp.unlink(req.file.path).catch(console.error);
+        }
+        res.status(500).json({ error: "Failed to process uploaded project" });
+      }
+    }
+  );
+
+  // New endpoint to confirm or reject an import
+  app.post(
+    "/showcomposer/api/projects/confirm-import",
+    express.json(),
+    async (req, res) => {
+      try {
+        const { tempId, confirm } = req.body;
+        if (!tempId) {
+          return res.status(400).json({ error: "Missing temporary import ID" });
         }
 
-        // Process images if we found any
-        if (uploadedImages.length > 0) {
-          for (const imageName of uploadedImages) {
-            let newImageName = imageName;
+        const tempDir = path.join(uploadDir, "temp_" + tempId);
 
-            // If image already exists, create new unique name
-            if (existingImages.includes(imageName)) {
-              const ext = path.extname(imageName);
-              const baseName = path.basename(imageName, ext);
-              newImageName = `${baseName}_${Date.now()}${ext}`;
-              imageRenames.set(imageName, newImageName);
+        // Check if the temp directory exists
+        try {
+          await fsp.access(tempDir);
+        } catch (error) {
+          return res
+            .status(404)
+            .json({ error: "Import session not found or expired" });
+        }
+
+        if (confirm) {
+          // User confirmed import - process the files
+          // Get list of existing images
+          const existingImages = await fsp.readdir(uploadDir);
+          const imageRenames = new Map(); // Track renamed images
+
+          // Read the data.json again
+          const dataJsonPath = path.join(tempDir, "data.json");
+          let projectData = JSON.parse(
+            await fsp.readFile(dataJsonPath, "utf8")
+          );
+
+          // Check for uploads directory and handle different possible structures
+          const uploadedImagesDir = path.join(tempDir, "uploads");
+          let uploadedImages = [];
+
+          try {
+            // Try to read the uploads directory
+            uploadedImages = await fsp.readdir(uploadedImagesDir);
+          } catch (err) {
+            if (err.code === "ENOENT") {
+              // If "uploads" directory doesn't exist, check if images are in root of zip
+              const allFiles = await fsp.readdir(tempDir);
+              uploadedImages = allFiles.filter(
+                (file) =>
+                  /\.(jpg|jpeg|png|gif)$/i.test(file) && file !== "data.json"
+              );
+              // If we found images in root, treat tempDir as the images directory
+              if (uploadedImages.length > 0) {
+                console.log("Found images in root of zip");
+                // Note: we're assigning to a variable that was const
+                // We'll use a different approach
+                let imagesSourceDir = tempDir;
+
+                // Process images if we found any
+                for (const imageName of uploadedImages) {
+                  let newImageName = imageName;
+
+                  // If image already exists, create new unique name
+                  if (existingImages.includes(imageName)) {
+                    const ext = path.extname(imageName);
+                    const baseName = path.basename(imageName, ext);
+                    newImageName = `${baseName}_${Date.now()}${ext}`;
+                    imageRenames.set(imageName, newImageName);
+                  }
+
+                  // Copy image to upload directory
+                  await fsp.copyFile(
+                    path.join(imagesSourceDir, imageName),
+                    path.join(uploadDir, newImageName)
+                  );
+                }
+              }
+            } else {
+              throw err; // Re-throw if it's a different error
             }
+          }
 
-            // Copy image to upload directory
-            await fsp.copyFile(
-              path.join(uploadedImagesDir, imageName),
-              path.join(uploadDir, newImageName)
-            );
+          // Process images if we found them in the uploads directory
+          if (uploadedImagesDir !== tempDir && uploadedImages.length > 0) {
+            for (const imageName of uploadedImages) {
+              let newImageName = imageName;
+
+              // If image already exists, create new unique name
+              if (existingImages.includes(imageName)) {
+                const ext = path.extname(imageName);
+                const baseName = path.basename(imageName, ext);
+                newImageName = `${baseName}_${Date.now()}${ext}`;
+                imageRenames.set(imageName, newImageName);
+              }
+
+              // Copy image to upload directory
+              await fsp.copyFile(
+                path.join(uploadedImagesDir, imageName),
+                path.join(uploadDir, newImageName)
+              );
+            }
           }
 
           // Update image references in data.json if any images were renamed
@@ -311,27 +383,25 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
 
             projectData = JSON.parse(updatedJsonString);
           }
+
+          // Remove the temp ID from the project data
+          delete projectData._tempImportId;
+
+          // Clean up the temporary directory
+          await fsp.rm(tempDir, { recursive: true, force: true });
+
+          // Send the updated project data back
+          res.json({ success: true, projectData });
+        } else {
+          // User rejected import - just delete the temp directory
+          await fsp.rm(tempDir, { recursive: true, force: true });
+          res.json({ success: true, message: "Import cancelled" });
         }
-
-        // Clean up temporary directory and uploaded zip
-        await fsp.rm(tempDir, { recursive: true, force: true });
-        await fsp.unlink(req.file.path);
-
-        // Send back the potentially modified project data
-        res.json(projectData);
       } catch (error) {
-        console.error("Error processing uploaded project:", error);
-        // Clean up temp directory if it exists
-        if (tempDir) {
-          await fsp
-            .rm(tempDir, { recursive: true, force: true })
-            .catch(console.error);
-        }
-        // Clean up uploaded file if it exists
-        if (req.file?.path) {
-          await fsp.unlink(req.file.path).catch(console.error);
-        }
-        res.status(500).json({ error: "Failed to process uploaded project" });
+        console.error("Error confirming/rejecting import:", error);
+        res
+          .status(500)
+          .json({ error: "Failed to process import confirmation" });
       }
     }
   );

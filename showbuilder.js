@@ -260,7 +260,7 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
             .catch(console.error);
         }
         // Clean up uploaded file if it exists
-        if (req.file?.path) {
+        if (req.file && req.file.path) {
           await fsp.unlink(req.file.path).catch(console.error);
         }
         res.status(500).json({ error: "Failed to process uploaded project" });

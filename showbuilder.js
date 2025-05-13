@@ -5,6 +5,7 @@ const path = require("path");
 const fs = require("fs"); // Regular fs for createWriteStream
 const fsp = require("fs").promises; // Promise-based fs for other operations
 const archiver = require("archiver");
+const extract = require("extract-zip");
 
 // node backend.js --directories '[\"showbuilder\",\"C:/Users/megaf/Documents/OpenSpace/sync/url/showbuilder\",\"showbuilder/uploads\",\"C:/Users/megaf/Documents/OpenSpace/user/showbuilder/uploads\",\"showbuilder/projects\",\"C:/Users/megaf/Documents/OpenSpace/user/showbuilder/projects\"]' -p 5860
 
@@ -85,6 +86,7 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
       if (!req.file) {
         return res.status(400).json({ error: "No file uploaded" });
       }
+      // console.log("req.file", req.file);
       res.json({
         filePath: `/uploads/${req.file.filename}`,
         fileName: req.file.filename,
@@ -225,23 +227,62 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
     "/showcomposer/api/projects/load",
     zipUpload.single("file"),
     async (req, res) => {
+      const tempId = Date.now() + "_" + Math.round(Math.random() * 1e9);
       try {
         if (!req.file) {
           return res.status(400).json({ error: "No zip file uploaded" });
         }
 
         // Create a temporary directory with unique ID for extraction
-        const tempId = Date.now() + "_" + Math.round(Math.random() * 1e9);
         const tempDir = path.join(uploadDir, "temp_" + tempId);
         await fsp.mkdir(tempDir, { recursive: true });
 
         // Extract zip file
-        const extract = require("extract-zip");
-        await extract(req.file.path, { dir: tempDir });
+        try {
+          await extract(req.file.path, { dir: tempDir });
+          console.log("Zip file extracted successfully");
+        } catch (extractError) {
+          console.error("Error extracting zip file:", extractError);
+          return res
+            .status(500)
+            .json({ error: "Failed to extract zip file" });
+        }
 
         // Read and parse the data.json file
         const dataJsonPath = path.join(tempDir, "data.json");
-        let projectData = JSON.parse(await fsp.readFile(dataJsonPath, "utf8"));
+        let projectData;
+        try {
+          const dataJson = await fsp.readFile(dataJsonPath, "utf8");
+          projectData = JSON.parse(dataJson);
+          
+          // Function to fix image URLs
+          function fixImageUrls(obj) {
+            if (typeof obj !== 'object' || obj === null) return;
+            
+            Object.keys(obj).forEach(key => {
+              if (typeof obj[key] === 'string') {
+                // Check if it's an image URL
+                if (obj[key].startsWith('/uploads/')) {
+                  // Fix URL by adding showcomposer prefix
+                  obj[key] = '/showcomposer' + obj[key];
+                }
+              } else if (typeof obj[key] === 'object') {
+                // Recursively check nested objects
+                fixImageUrls(obj[key]);
+              }
+            });
+          }
+
+          // Fix image URLs in project data
+          fixImageUrls(projectData);
+          console.log("Fixed image URLs in project data");
+          
+        } catch (error) {
+          console.error("Error parsing data.json:", error);
+          return res
+            .status(500)
+            .json({ error: "Failed to parse data.json" });
+        }
 
         // Add temp directory ID to project data for reference
         projectData._tempImportId = tempId;
@@ -254,6 +295,7 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
       } catch (error) {
         console.error("Error processing uploaded project:", error);
         // Clean up temp directory if it exists
+        const tempDir = path.join(uploadDir, "temp_" + tempId);
         if (tempDir) {
           await fsp
             .rm(tempDir, { recursive: true, force: true })
@@ -316,6 +358,10 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
               uploadedImages = allFiles.filter(
                 (file) =>
                   /\.(jpg|jpeg|png|gif)$/i.test(file) && file !== "data.json"
+              );
+              console.log("uploadedImages", uploadedImages);
+              uploadedImages = uploadedImages.map((image) =>
+                image.replace(/\\/g, "/")
               );
               // If we found images in root, treat tempDir as the images directory
               if (uploadedImages.length > 0) {

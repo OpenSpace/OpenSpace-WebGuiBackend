@@ -8,7 +8,6 @@ const archiver = require("archiver");
 const extract = require("extract-zip");
 
 // node backend.js --directories '[\"showbuilder\",\"C:/Users/megaf/Documents/OpenSpace/sync/url/showbuilder\",\"showbuilder/uploads\",\"C:/Users/megaf/Documents/OpenSpace/user/showbuilder/uploads\",\"showbuilder/projects\",\"C:/Users/megaf/Documents/OpenSpace/user/showbuilder/projects\"]' -p 5860
-
 const setupShowbuilderRoutes = async (app, endpoints) => {
   if (!endpoints.uploads || !endpoints.projects) {
     console.log(

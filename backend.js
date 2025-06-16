@@ -51,25 +51,50 @@ try {
   process.exit();
 }
 
-Object.entries(endpoints).forEach((pair) => {
-  console.log("Pair: ", pair);
-  if (typeof pair[1] !== "string") {
-    console.error("Expected ", pair[1], " to be a string");
-    delete endpoints[pair[0]];
-    return;
+function isValidEndpoint(route, dir) {
+  if (typeof dir !== "string") {
+    console.error("Expected ", dir, " to be a string");
+    return false;
   }
-  if (pair[0] == "endpoints") {
+  if (route == "endpoints") {
     console.error(
       '"endpoints" is a reserved endpoint to list available endpoints'
     );
-    delete endpoints[pair[0]];
+    return false;
+  }
+  return true;
+}
+
+// For all the endpoints, validate and serve the directories
+Object.entries(endpoints).forEach(([route, dir]) => {
+  if (!isValidEndpoint(route, dir)) {
+    delete endpoints[route];
     return;
   }
-  app.use("/" + pair[0], (req, res, next) => {
-    // Remove the route prefix from the URL to properly resolve static files
-    req.url = req.url.replace(`/${pair[0]}`, "");
-    express.static(pair[1])(req, res, next);
-  });
+  const staticMiddleware = express.static(dir);
+  const mountPath = route === "/" ? "/" : `/${route}`;
+
+  app.use(mountPath, staticMiddleware);
+});
+
+// Catch all get requests and check if they are for the GUI.
+// If so, serve the index.html file from the GUI directory
+// and let the React Router handle the endpoints. Else, pass the request
+// to the next middleware.
+app.get("*", (req, res, next) => {
+  log("GET request for: " + req.path);
+  if (req.path.startsWith("/gui")) {
+    const guiDir = endpoints["gui"];
+    if (!guiDir) {
+      console.warn("Attempted to serve /gui path, but no gui directory found.");
+      return res.status(500).send("GUI directory not configured.");
+    }
+
+    const indexPath = path.join(guiDir, "index.html");
+    return res.sendFile(indexPath);
+  } else {
+    return next();
+  }
 });
 
 if (Object.keys(endpoints).length === 0) {

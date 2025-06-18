@@ -77,26 +77,6 @@ Object.entries(endpoints).forEach(([route, dir]) => {
   app.use(mountPath, staticMiddleware);
 });
 
-// Catch all get requests and check if they are for the GUI.
-// If so, serve the index.html file from the GUI directory
-// and let the React Router handle the endpoints. Else, pass the request
-// to the next middleware.
-app.get("*", (req, res, next) => {
-  log("GET request for: " + req.path);
-  if (req.path.startsWith("/gui")) {
-    const guiDir = endpoints["gui"];
-    if (!guiDir) {
-      console.warn("Attempted to serve /gui path, but no gui directory found.");
-      return res.status(500).send("GUI directory not configured.");
-    }
-
-    const indexPath = path.join(guiDir, "index.html");
-    return res.sendFile(indexPath);
-  } else {
-    return next();
-  }
-});
-
 if (Object.keys(endpoints).length === 0) {
   console.log("No directories to serve. Use --help for more info.");
   process.exit();

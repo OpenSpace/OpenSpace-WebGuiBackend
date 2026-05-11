@@ -151,6 +151,18 @@ if (autoClose) {
     ws.send(
       JSON.stringify({
         topic: 0,
+        type: "apiHandshake",
+        apiVersion: {
+          major: 1,
+          minor: 0,
+          patch: 0
+        }
+      })
+    );
+
+    ws.send(
+      JSON.stringify({
+        topic: 0,
         type: "set",
         payload: {
           property: "Modules.WebGui.ServedDirectories",

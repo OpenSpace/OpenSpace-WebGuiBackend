@@ -150,7 +150,6 @@ if (autoClose) {
     // Notify OpenSpace about which directories that are served.
     ws.send(
       JSON.stringify({
-        topic: 0,
         type: "apiHandshake",
         apiVersion: {
           major: 1,

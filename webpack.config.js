@@ -12,5 +12,8 @@ module.exports = {
     path: path.join(__dirname, "dist"),
     filename: "[name].js",
   },
+  plugins: [
+    new webpack.IgnorePlugin({ resourceRegExp: /^(bufferutil|utf-8-validate)$/ }),
+  ],
   mode: "production",
 };

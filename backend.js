@@ -1,12 +1,14 @@
+const { program } = require("commander");
+
 const express = require("express");
-const program = require("commander");
 const WebSocket = require("ws");
 const flatMap = require("flatmap");
 const path = require("path");
 const setupShowbuilderRoutes = require("./showbuilder");
 
 program
-  .version("0.1.0")
+  .name("WebGui-Backend")
+  .version("1.0.0")
   .option("-p, --http-port <httpPort>", "Specify http port")
   .option("-a, --ws-address <wsAddress>", "Specify WebSocket address")
   .option("-w, --ws-port <wsPort>", "Specify WebSocket port")
@@ -23,16 +25,17 @@ program
     "-c, --auto-close",
     "Connect to OpenSpace server and shut down when connection is lost"
   )
-  .parse(process.argv);
+  .parse();
 
-const httpPort = program.httpPort || 4680;
-const wsAddress = program.wsAddress || "127.0.0.1";
-const wsPort = program.wsPort || 4682;
-const autoClose = program.autoClose;
-const local = program.local;
-const redirect = program.redirect || "endpoints";
+const opts = program.opts();
+const httpPort = opts.httpPort || 4680;
+const wsAddress = opts.wsAddress || "127.0.0.1";
+const wsPort = opts.wsPort || 4682;
+const autoClose = opts.autoClose;
+const local = opts.local;
+const redirect = opts.redirect || "endpoints";
 const openSpaceAddress = local ? "127.0.0.1" : wsAddress;
-const directories = program.directories || "[]";
+const directories = opts.directories || "[]";
 
 // Setup static HTTP Server
 const app = express();
@@ -97,7 +100,7 @@ const server = app.listen(httpPort);
 app.get("/environment.js", (req, res) => {
   let address = wsAddress;
   // For local http requests, use local address for websocket as well.
-  const clientAddress = req.connection.remoteAddress;
+  const clientAddress = req.socket.remoteAddress;
   if (local) {
     if (clientAddress == "localhost" || clientAddress == "127.0.0.1") {
       address = clientAddress;
@@ -147,7 +150,6 @@ if (autoClose) {
   ws.on("open", (connection) => {
     console.log("Connected to local OpenSpace server");
 
-    // Notify OpenSpace about which directories that are served.
     ws.send(
       JSON.stringify({
         type: "apiHandshake",
@@ -159,6 +161,7 @@ if (autoClose) {
       })
     );
 
+    // Notify OpenSpace about which directories that are served.
     ws.send(
       JSON.stringify({
         topic: 0,

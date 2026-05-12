@@ -14,19 +14,39 @@ const {
   redirect,
   directories: directoriesOpt
 } = yargs(hideBin(process.argv))
-  .option('http-port', { alias: 'p', type: 'number', default: 4680, description: 'Specify http port' })
-  .option('ws-address', { alias: 'a', type: 'string', default: '127.0.0.1', description: 'Specify WebSocket address' })
-  .option('ws-port', { type: 'number', default: 4682, description: 'Specify WebSocket port' })
+  .option('http-port', {
+    alias: 'p',
+    type: 'number',
+    default: 4680,
+    description: 'Specify http port'
+  })
+  .option('ws-address', {
+    alias: 'a',
+    type: 'string',
+    default: '127.0.0.1',
+    description: 'Specify WebSocket address'
+  })
+  .option('ws-port', {
+    type: 'number',
+    default: 4682,
+    description: 'Specify WebSocket port'
+  })
   .option('directories', {
     type: 'string',
     default: '[]',
-    description: 'Specify directories to serve, on the format \'["endpoint1", "path1", "endpoint2", "path2",...]\''
+    description:
+      'Specify directories to serve, on the format \'["endpoint1", "path1", "endpoint2", "path2",...]\''
   })
-  .option('local', { type: 'boolean', default: false, description: 'Specify if OpenSpace is running on 127.0.0.1' })
+  .option('local', {
+    type: 'boolean',
+    default: false,
+    description: 'Specify if OpenSpace is running on 127.0.0.1'
+  })
   .option('redirect', {
     type: 'string',
     default: 'endpoints',
-    description: 'Specify which of the endpoints that should receive redirects from the base url (/)'
+    description:
+      'Specify which of the endpoints that should receive redirects from the base url (/)'
   })
   .option('auto-close', {
     alias: 'c',

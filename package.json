@@ -16,11 +16,11 @@
   "dependencies": {
     "archiver": "^8.0.0",
     "archiver-utils": "^5.0.2",
-    "args": "^5.0.3",
     "express": "^5.2.1",
     "extract-zip": "^2.0.1",
     "multer": "^2.1.1",
-    "ws": "^8.20.0"
+    "ws": "^8.20.0",
+    "yargs": "^18.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -29,6 +29,7 @@
     "@types/multer": "^2.1.0",
     "@types/node": "^25.7.0",
     "@types/ws": "^8.18.1",
+    "@types/yargs": "^17.0.35",
     "eslint": "^10.3.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-simple-import-sort": "^13.0.0",

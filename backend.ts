@@ -1,58 +1,43 @@
-interface RawFlags {
-  httpPort?: string;
-  wsAddress?: string;
-  wsPort?: string;
-  directories?: string;
-  local?: boolean;
-  redirect?: string;
-  autoClose?: boolean;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const argsLib = require('args') as {
-  option(
-    name: string | [string, string],
-    description: string,
-    defaultValue?: unknown
-  ): typeof argsLib;
-  parse(argv: string[], options?: object): RawFlags;
-};
 import express, { Request, Response } from 'express';
 import WebSocket from 'ws';
+import yargs from 'yargs';
+import { hideBin } from 'yargs/helpers';
 
 import setupShowbuilderRoutes from './showbuilder';
 
-argsLib
-  .option(['p', 'http-port'], 'Specify http port')
-  .option(['a', 'ws-address'], 'Specify WebSocket address')
-  .option('ws-port', 'Specify WebSocket port')
-  .option(
-    'directories',
-    'Specify directories to serve, on the format \'["endpoint1", "path1", "endpoint2", "path2",...]\''
-  )
-  .option('local', 'Specify if OpenSpace is running on 127.0.0.1', false)
-  .option(
-    'redirect',
-    'Specify which of the endpoints that should recieve redirects from the base url (/)'
-  )
-  .option(
-    ['c', 'auto-close'],
-    'Connect to OpenSpace server and shut down when connection is lost',
-    false
-  );
-
 const {
-  httpPort: rawHttpPort = '4680',
-  wsAddress = '127.0.0.1',
-  wsPort: rawWsPort = '4682',
-  autoClose = false,
-  local = false,
-  redirect = 'endpoints',
-  directories: directoriesOpt = '[]'
-} = argsLib.parse(process.argv);
+  'http-port': rawHttpPort,
+  'ws-address': wsAddress,
+  'ws-port': rawWsPort,
+  'auto-close': autoClose,
+  local,
+  redirect,
+  directories: directoriesOpt
+} = yargs(hideBin(process.argv))
+  .option('http-port', { alias: 'p', type: 'number', default: 4680, description: 'Specify http port' })
+  .option('ws-address', { alias: 'a', type: 'string', default: '127.0.0.1', description: 'Specify WebSocket address' })
+  .option('ws-port', { type: 'number', default: 4682, description: 'Specify WebSocket port' })
+  .option('directories', {
+    type: 'string',
+    default: '[]',
+    description: 'Specify directories to serve, on the format \'["endpoint1", "path1", "endpoint2", "path2",...]\''
+  })
+  .option('local', { type: 'boolean', default: false, description: 'Specify if OpenSpace is running on 127.0.0.1' })
+  .option('redirect', {
+    type: 'string',
+    default: 'endpoints',
+    description: 'Specify which of the endpoints that should receive redirects from the base url (/)'
+  })
+  .option('auto-close', {
+    alias: 'c',
+    type: 'boolean',
+    default: false,
+    description: 'Connect to OpenSpace server and shut down when connection is lost'
+  })
+  .parseSync();
 
-const httpPort = Number(rawHttpPort);
-const wsPort = Number(rawWsPort);
+const httpPort = rawHttpPort;
+const wsPort = rawWsPort;
 const openSpaceAddress: string = local ? '127.0.0.1' : wsAddress;
 
 // Setup static HTTP Server

@@ -174,7 +174,7 @@ if (autoClose) {
 
   // Whenever the contact is lost, kill app
   ws.on('close', () => {
-    console.log('Lost conneciton to OpenSpace - Exiting.');
+    console.log('Lost connection to OpenSpace - Exiting.');
     server.close();
     process.exit();
   });

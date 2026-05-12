@@ -75,13 +75,8 @@ try {
   process.exit();
 }
 
-// For all the endpoints, validate and serve the directories
+// For all the endpoints serve the directories
 Object.entries(endpoints).forEach(([route, dir]) => {
-  if (route === 'endpoints') {
-    console.error('"endpoints" is a reserved endpoint to list available endpoints');
-    delete endpoints[route];
-    return;
-  }
   const staticMiddleware = express.static(dir);
   const mountPath = route === '/' ? '/' : `/${route}`;
 
@@ -128,15 +123,6 @@ app.get('/environment.js', (req: Request, res: Response) => {
   );
 });
 
-app.get('/endpoints', (req: Request, res: Response) => {
-  res.send(
-    '<h1>OpenSpace Endpoints</h1>' +
-      Object.entries(endpoints)
-        .map((pair) => `<li><a href="/${pair[0]}">${pair[0]}</a></li>`)
-        .join('')
-  );
-});
-
 app.get('/', (req: Request, res: Response) => {
   res.redirect(`/${redirect}`);
 });
@@ -158,6 +144,7 @@ if (autoClose) {
   ws.on('open', () => {
     console.log('Connected to local OpenSpace server');
 
+    // Send the API version that we are using
     ws.send(
       JSON.stringify({
         type: 'apiHandshake',

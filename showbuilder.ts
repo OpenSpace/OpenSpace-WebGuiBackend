@@ -10,6 +10,15 @@ interface ShowbuilderEndpoints {
   projects?: string;
 }
 
+interface ProjectData {
+  settingsStore: {
+    projectName: string;
+    [key: string]: unknown;
+  };
+  _tempImportId?: string;
+  [key: string]: unknown;
+}
+
 // node backend.js --directories '[\"showbuilder\",\"C:/Users/megaf/Documents/OpenSpace/sync/url/showbuilder\",\"showbuilder/uploads\",\"C:/Users/megaf/Documents/OpenSpace/user/showbuilder/uploads\",\"showbuilder/projects\",\"C:/Users/megaf/Documents/OpenSpace/user/showbuilder/projects\"]' -p 5860
 const setupShowbuilderRoutes = async (
   app: Application,
@@ -118,8 +127,7 @@ const setupShowbuilderRoutes = async (
     express.json(),
     async (req: Request, res: Response) => {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const jsonData: any = req.body;
+        const jsonData = req.body as ProjectData;
         console.log('JSON Data: ', jsonData);
         const zipFileName = `${
           jsonData.settingsStore.projectName.replace(/ /g, '_') || 'project'
@@ -156,7 +164,12 @@ const setupShowbuilderRoutes = async (
         // Add each referenced image to the zip
         for (const imageUrl of imageUrls) {
           const fileName = imageUrl.split('/').pop()!;
-          const filePath = path.join(uploadDir, fileName);
+          const filePath = path.resolve(uploadDir, fileName);
+
+          if (!filePath.startsWith(path.resolve(uploadDir) + path.sep)) {
+            console.warn(`Skipping file outside upload directory: ${fileName}`);
+            continue;
+          }
 
           try {
             await fsp.access(filePath);
@@ -182,8 +195,7 @@ const setupShowbuilderRoutes = async (
     express.json(),
     async (req: Request, res: Response) => {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const projectData: any = req.body;
+        const projectData = req.body as ProjectData;
         const projectName =
           projectData.settingsStore.projectName.replace(/ /g, '_') || 'project';
         if (!projectName || !projectData) {
@@ -249,11 +261,10 @@ const setupShowbuilderRoutes = async (
 
         // Read and parse the data.json file
         const dataJsonPath = path.join(tempDir, 'data.json');
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let projectData: any;
+        let projectData: ProjectData;
         try {
           const dataJson = await fsp.readFile(dataJsonPath, 'utf8');
-          projectData = JSON.parse(dataJson);
+          projectData = JSON.parse(dataJson) as ProjectData;
 
           // Function to fix image URLs
           function fixImageUrls(obj: Record<string, unknown>): void {
@@ -334,8 +345,9 @@ const setupShowbuilderRoutes = async (
 
           // Read the data.json again
           const dataJsonPath = path.join(tempDir, 'data.json');
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          let projectData: any = JSON.parse(await fsp.readFile(dataJsonPath, 'utf8'));
+          let projectData: ProjectData = JSON.parse(
+            await fsp.readFile(dataJsonPath, 'utf8')
+          ) as ProjectData;
 
           // Check for uploads directory and handle different possible structures
           const uploadedImagesDir = path.join(tempDir, 'uploads');
@@ -409,13 +421,10 @@ const setupShowbuilderRoutes = async (
             let updatedJsonString = jsonString;
 
             imageRenames.forEach((newName, oldName) => {
-              updatedJsonString = updatedJsonString.replace(
-                new RegExp(oldName, 'g'),
-                newName
-              );
+              updatedJsonString = updatedJsonString.replaceAll(oldName, newName);
             });
 
-            projectData = JSON.parse(updatedJsonString);
+            projectData = JSON.parse(updatedJsonString) as ProjectData;
           }
 
           // Remove the temp ID from the project data

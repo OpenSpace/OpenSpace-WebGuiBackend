@@ -63,33 +63,22 @@ const app = express();
 
 const endpoints: Record<string, string> = {};
 try {
-  console.log('Directories: ', directoriesOpt);
+  console.log(`Directories: ${directoriesOpt}`);
   const endpointList: unknown[] = JSON.parse(directoriesOpt);
-  console.log('Endpoint List: ', endpointList);
+  console.log(`Endpoint List: ${endpointList}`);
   for (let i = 0; i < endpointList.length - 1; i += 2) {
     endpoints[String(endpointList[i])] = String(endpointList[i + 1]);
   }
-  console.log('Endpoints: ', endpoints);
+  console.log(`Endpoints: ${endpoints}`);
 } catch (e) {
-  console.error('Failed to parse endpoints: ', directoriesOpt, e);
+  console.error(`Failed to parse endpoints: ${directoriesOpt}. ${e}`);
   process.exit();
-}
-
-function isValidEndpoint(route: string, dir: string): boolean {
-  if (typeof dir !== 'string') {
-    console.error('Expected ', dir, ' to be a string');
-    return false;
-  }
-  if (route === 'endpoints') {
-    console.error('"endpoints" is a reserved endpoint to list available endpoints');
-    return false;
-  }
-  return true;
 }
 
 // For all the endpoints, validate and serve the directories
 Object.entries(endpoints).forEach(([route, dir]) => {
-  if (!isValidEndpoint(route, dir)) {
+  if (route === 'endpoints') {
+    console.error('"endpoints" is a reserved endpoint to list available endpoints');
     delete endpoints[route];
     return;
   }
@@ -111,7 +100,7 @@ const showbuilderEndpoints = {
 };
 // Call the function to set up file upload routes
 setupShowbuilderRoutes(app, showbuilderEndpoints).catch((e: unknown) => {
-  console.error('Failed to set up showbuilder routes:', e);
+  console.error(`Failed to set up showbuilder routes: ${e}`);
   process.exit(1);
 });
 
@@ -119,7 +108,7 @@ const server = app.listen(httpPort);
 
 app.get('/environment.js', (req: Request, res: Response) => {
   let address = wsAddress;
-  // For local http requests, use local address for websocket as well.
+  // For local http requests, use local address for websocket as well
   const clientAddress = req.socket.remoteAddress;
   if (local) {
     if (clientAddress === 'localhost' || clientAddress === '127.0.0.1') {
@@ -162,11 +151,10 @@ console.log(`  WebSocket Address: ${wsAddress}`);
 console.log(`  WebSocket Port: ${wsPort}`);
 
 if (autoClose) {
-  // Use WebSocket connection to OpenSpace process
-  // to detect when it closes.
+  // Use WebSocket connection to OpenSpace process to detect when it closes
   const ws = new WebSocket(`ws://${openSpaceAddress}:${wsPort}`);
 
-  // Connect to OpenSpace process.
+  // Connect to OpenSpace process
   ws.on('open', () => {
     console.log('Connected to local OpenSpace server');
 
@@ -181,7 +169,7 @@ if (autoClose) {
       })
     );
 
-    // Notify OpenSpace about which directories that are served.
+    // Notify OpenSpace about which directories that are served
     ws.send(
       JSON.stringify({
         topic: 0,
@@ -194,7 +182,7 @@ if (autoClose) {
     );
   });
 
-  // Whenever the contact is lost, kill app.
+  // Whenever the contact is lost, kill app
   ws.on('close', () => {
     console.log('Lost conneciton to OpenSpace - Exiting.');
     server.close();
@@ -203,7 +191,7 @@ if (autoClose) {
 
   ws.on('error', (error: Error) => {
     console.error(error);
-    console.log('Connection error: ' + error + ' - Exiting.');
+    console.log(`Connection error: ${error} - Exiting`);
     server.close();
     process.exit();
   });

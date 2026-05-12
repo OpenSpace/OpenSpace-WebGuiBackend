@@ -1,10 +1,7 @@
-const { program } = require("commander");
-
-const express = require("express");
-const WebSocket = require("ws");
-const flatMap = require("flatmap");
-const path = require("path");
-const setupShowbuilderRoutes = require("./showbuilder");
+import { program } from "commander";
+import express, { Request, Response } from "express";
+import WebSocket from "ws";
+import setupShowbuilderRoutes from "./showbuilder";
 
 program
   .name("WebGui-Backend")
@@ -28,33 +25,33 @@ program
   .parse();
 
 const opts = program.opts();
-const httpPort = opts.httpPort || 4680;
-const wsAddress = opts.wsAddress || "127.0.0.1";
-const wsPort = opts.wsPort || 4682;
-const autoClose = opts.autoClose;
-const local = opts.local;
-const redirect = opts.redirect || "endpoints";
-const openSpaceAddress = local ? "127.0.0.1" : wsAddress;
-const directories = opts.directories || "[]";
+const httpPort: number = Number(opts.httpPort) || 4680;
+const wsAddress: string = opts.wsAddress || "127.0.0.1";
+const wsPort: number = Number(opts.wsPort) || 4682;
+const autoClose: boolean = !!opts.autoClose;
+const local: boolean = !!opts.local;
+const redirect: string = opts.redirect || "endpoints";
+const openSpaceAddress: string = local ? "127.0.0.1" : wsAddress;
+const directoriesOpt: string = opts.directories || "[]";
 
 // Setup static HTTP Server
 const app = express();
 
-let endpoints = {};
+let endpoints: Record<string, string> = {};
 try {
-  console.log("Directories: ", directories);
-  const endpointList = JSON.parse(directories);
+  console.log("Directories: ", directoriesOpt);
+  const endpointList: unknown[] = JSON.parse(directoriesOpt);
   console.log("Endpoint List: ", endpointList);
   for (let i = 0; i < endpointList.length - 1; i += 2) {
-    endpoints[endpointList[i]] = endpointList[i + 1];
+    endpoints[String(endpointList[i])] = String(endpointList[i + 1]);
   }
   console.log("Endpoints: ", endpoints);
 } catch (e) {
-  console.error("Failed to parse endpoints: ", directories, e);
+  console.error("Failed to parse endpoints: ", directoriesOpt, e);
   process.exit();
 }
 
-function isValidEndpoint(route, dir) {
+function isValidEndpoint(route: string, dir: string): boolean {
   if (typeof dir !== "string") {
     console.error("Expected ", dir, " to be a string");
     return false;
@@ -97,7 +94,7 @@ const showbuilderEndpoints = {
 
 const server = app.listen(httpPort);
 
-app.get("/environment.js", (req, res) => {
+app.get("/environment.js", (req: Request, res: Response) => {
   let address = wsAddress;
   // For local http requests, use local address for websocket as well.
   const clientAddress = req.socket.remoteAddress;
@@ -119,7 +116,7 @@ app.get("/environment.js", (req, res) => {
   );
 });
 
-app.get("/endpoints", (req, res) => {
+app.get("/endpoints", (req: Request, res: Response) => {
   res.send(
     "<h1>OpenSpace Endpoints</h1>" +
       Object.entries(endpoints)
@@ -128,7 +125,7 @@ app.get("/endpoints", (req, res) => {
   );
 });
 
-app.get("/", (req, res) => {
+app.get("/", (req: Request, res: Response) => {
   res.redirect("/" + redirect);
 });
 
@@ -147,7 +144,7 @@ if (autoClose) {
   const ws = new WebSocket("ws://" + openSpaceAddress + ":" + wsPort);
 
   // Connect to OpenSpace process.
-  ws.on("open", (connection) => {
+  ws.on("open", () => {
     console.log("Connected to local OpenSpace server");
 
     ws.send(
@@ -156,8 +153,8 @@ if (autoClose) {
         apiVersion: {
           major: 1,
           minor: 0,
-          patch: 0
-        }
+          patch: 0,
+        },
       })
     );
 
@@ -168,7 +165,7 @@ if (autoClose) {
         type: "set",
         payload: {
           property: "Modules.WebGui.ServedDirectories",
-          value: flatMap(Object.entries(endpoints), (p) => [p[0], p[1]]),
+          value: Object.entries(endpoints).flatMap((p) => [p[0], p[1]]),
         },
       })
     );
@@ -181,7 +178,7 @@ if (autoClose) {
     process.exit();
   });
 
-  ws.on("error", (error) => {
+  ws.on("error", (error: Error) => {
     console.error(error);
     console.log("Connection error: " + error + " - Exiting.");
     server.close();

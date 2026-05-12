@@ -44,7 +44,7 @@ const {
   })
   .option('redirect', {
     type: 'string',
-    default: 'endpoints',
+    default: '',
     description:
       'Specify which of the endpoints that should receive redirects from the base url (/)'
   })
@@ -126,9 +126,11 @@ app.get('/environment.js', (req: Request, res: Response) => {
   );
 });
 
-app.get('/', (req: Request, res: Response) => {
-  res.redirect(`/${redirect}`);
-});
+if (redirect !== '') {
+  app.get('/', (req: Request, res: Response) => {
+    res.redirect(`/${redirect}`);
+  });
+}
 
 console.log('Serving OpenSpace web content');
 console.log('  Serving directories: ');

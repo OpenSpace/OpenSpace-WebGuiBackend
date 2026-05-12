@@ -201,6 +201,9 @@ const setupShowbuilderRoutes = async (
         if (!projectName || !projectData) {
           return res.status(400).json({ error: 'Project name and data are required.' });
         }
+        if (!/^[\w\-]+$/.test(projectName)) {
+          return res.status(400).json({ error: 'Invalid project name.' });
+        }
         const projectFilePath = path.join(projectsDir, `${projectName}.json`);
         await fsp.writeFile(projectFilePath, JSON.stringify(projectData, null, 2));
         res.status(201).json({ message: 'Project saved successfully.' });
@@ -355,7 +358,9 @@ const setupShowbuilderRoutes = async (
 
           try {
             // Try to read the uploads directory
-            uploadedImages = await fsp.readdir(uploadedImagesDir);
+            uploadedImages = (await fsp.readdir(uploadedImagesDir)).filter((file) =>
+              /\.(jpg|jpeg|png|gif)$/i.test(file)
+            );
           } catch (err) {
             if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
               // If "uploads" directory doesn't exist, check if images are in root of zip

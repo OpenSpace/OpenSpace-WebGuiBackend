@@ -6,9 +6,9 @@ import { hideBin } from 'yargs/helpers';
 import setupShowbuilderRoutes from './showbuilder';
 
 const {
-  'http-port': rawHttpPort,
+  'http-port': httpPort,
   'ws-address': wsAddress,
-  'ws-port': rawWsPort,
+  'ws-port': wsPort,
   'auto-close': autoClose,
   local,
   redirect,
@@ -36,8 +36,6 @@ const {
   })
   .parseSync();
 
-const httpPort = rawHttpPort;
-const wsPort = rawWsPort;
 const openSpaceAddress: string = local ? '127.0.0.1' : wsAddress;
 
 // Setup static HTTP Server
@@ -62,7 +60,7 @@ function isValidEndpoint(route: string, dir: string): boolean {
     console.error('Expected ', dir, ' to be a string');
     return false;
   }
-  if (route == 'endpoints') {
+  if (route === 'endpoints') {
     console.error('"endpoints" is a reserved endpoint to list available endpoints');
     return false;
   }
@@ -92,9 +90,10 @@ const showbuilderEndpoints = {
   projects: endpoints['showcomposer/projects']
 };
 // Call the function to set up file upload routes
-(async () => {
-  await setupShowbuilderRoutes(app, showbuilderEndpoints);
-})();
+setupShowbuilderRoutes(app, showbuilderEndpoints).catch((e: unknown) => {
+  console.error('Failed to set up showbuilder routes:', e);
+  process.exit(1);
+});
 
 const server = app.listen(httpPort);
 
@@ -103,10 +102,10 @@ app.get('/environment.js', (req: Request, res: Response) => {
   // For local http requests, use local address for websocket as well.
   const clientAddress = req.socket.remoteAddress;
   if (local) {
-    if (clientAddress == 'localhost' || clientAddress == '127.0.0.1') {
+    if (clientAddress === 'localhost' || clientAddress === '127.0.0.1') {
       address = clientAddress;
     }
-    if (clientAddress == '::1') {
+    if (clientAddress === '::1') {
       address = '127.0.0.1';
     }
   }
@@ -130,7 +129,7 @@ app.get('/endpoints', (req: Request, res: Response) => {
 });
 
 app.get('/', (req: Request, res: Response) => {
-  res.redirect('/' + redirect);
+  res.redirect(`/${redirect}`);
 });
 
 console.log('Serving OpenSpace web content');
@@ -138,14 +137,14 @@ console.log('  Serving directories: ');
 Object.entries(endpoints).forEach((pair) => {
   console.log(`    ${pair[0]} : ${pair[1]}`);
 });
-console.log('  Http Port: ' + httpPort);
-console.log('  WebSocket Address: ' + wsAddress);
-console.log('  WebSocket Port: ' + wsPort);
+console.log(`  Http Port: ${httpPort}`);
+console.log(`  WebSocket Address: ${wsAddress}`);
+console.log(`  WebSocket Port: ${wsPort}`);
 
 if (autoClose) {
   // Use WebSocket connection to OpenSpace process
   // to detect when it closes.
-  const ws = new WebSocket('ws://' + openSpaceAddress + ':' + wsPort);
+  const ws = new WebSocket(`ws://${openSpaceAddress}:${wsPort}`);
 
   // Connect to OpenSpace process.
   ws.on('open', () => {

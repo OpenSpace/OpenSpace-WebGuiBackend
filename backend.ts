@@ -105,11 +105,14 @@ app.get('/environment.js', (req: Request, res: Response) => {
   let address = wsAddress;
   // For local http requests, use local address for websocket as well
   const clientAddress = req.socket.remoteAddress;
+  const normalizedClientAddress = clientAddress?.startsWith('::ffff:')
+    ? clientAddress.substring('::ffff:'.length)
+    : clientAddress;
   if (local) {
-    if (clientAddress === 'localhost' || clientAddress === '127.0.0.1') {
-      address = clientAddress;
-    }
-    if (clientAddress === '::1') {
+    if (
+      normalizedClientAddress === '127.0.0.1' ||
+      normalizedClientAddress === '::1'
+    ) {
       address = '127.0.0.1';
     }
   }

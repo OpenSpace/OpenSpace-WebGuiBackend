@@ -1,0 +1,190 @@
+import express, { Request, Response } from 'express';
+import WebSocket from 'ws';
+import yargs from 'yargs';
+import { hideBin } from 'yargs/helpers';
+
+import setupShowbuilderRoutes from './showbuilder';
+
+const {
+  'http-port': httpPort,
+  'ws-address': wsAddress,
+  'ws-port': wsPort,
+  'auto-close': autoClose,
+  local,
+  redirect,
+  directories: directoriesOpt
+} = yargs(hideBin(process.argv))
+  .option('http-port', {
+    alias: 'p',
+    type: 'number',
+    default: 4680,
+    description: 'Specify http port'
+  })
+  .option('ws-address', {
+    alias: 'a',
+    type: 'string',
+    default: '127.0.0.1',
+    description: 'Specify WebSocket address'
+  })
+  .option('ws-port', {
+    type: 'number',
+    default: 4682,
+    description: 'Specify WebSocket port'
+  })
+  .option('directories', {
+    type: 'string',
+    default: '[]',
+    description:
+      'Specify directories to serve, on the format \'["endpoint1", "path1", "endpoint2", "path2",...]\''
+  })
+  .option('local', {
+    type: 'boolean',
+    default: false,
+    description: 'Specify if OpenSpace is running on 127.0.0.1'
+  })
+  .option('redirect', {
+    type: 'string',
+    default: '',
+    description:
+      'Specify which of the endpoints that should receive redirects from the base url (/)'
+  })
+  .option('auto-close', {
+    alias: 'c',
+    type: 'boolean',
+    default: false,
+    description: 'Connect to OpenSpace server and shut down when connection is lost'
+  })
+  .parseSync();
+
+const openSpaceAddress: string = local ? '127.0.0.1' : wsAddress;
+
+// Setup static HTTP Server
+const app = express();
+
+const endpoints: Record<string, string> = {};
+try {
+  console.log(`Directories: ${directoriesOpt}`);
+  const endpointList: unknown[] = JSON.parse(directoriesOpt);
+  console.log(`Endpoint List: ${endpointList}`);
+  for (let i = 0; i < endpointList.length - 1; i += 2) {
+    endpoints[String(endpointList[i])] = String(endpointList[i + 1]);
+  }
+  console.log(`Endpoints: ${endpoints}`);
+} catch (e) {
+  console.error(`Failed to parse endpoints: ${directoriesOpt}. ${e}`);
+  process.exit();
+}
+
+// For all the endpoints serve the directories
+Object.entries(endpoints).forEach(([route, dir]) => {
+  const staticMiddleware = express.static(dir);
+  const mountPath = route === '/' ? '/' : `/${route}`;
+
+  app.use(mountPath, staticMiddleware);
+});
+
+if (Object.keys(endpoints).length === 0) {
+  console.log('No directories to serve. Use --help for more info.');
+  process.exit();
+}
+
+// Extract showbuilder specific endpoints
+const showbuilderEndpoints = {
+  uploads: endpoints['showcomposer/uploads'],
+  projects: endpoints['showcomposer/projects']
+};
+// Call the function to set up file upload routes
+setupShowbuilderRoutes(app, showbuilderEndpoints).catch((e: unknown) => {
+  console.error(`Failed to set up showbuilder routes: ${e}`);
+  process.exit(1);
+});
+
+const server = app.listen(httpPort);
+
+app.get('/environment.js', (req: Request, res: Response) => {
+  let address = wsAddress;
+  // For local http requests, use local address for websocket as well
+  const clientAddress = req.socket.remoteAddress;
+  const normalizedClientAddress = clientAddress?.startsWith('::ffff:')
+    ? clientAddress.substring('::ffff:'.length)
+    : clientAddress;
+  if (local) {
+    if (
+      normalizedClientAddress === '127.0.0.1' ||
+      normalizedClientAddress === '::1'
+    ) {
+      address = '127.0.0.1';
+    }
+  }
+
+  res.send(
+    'window.OpenSpaceEnvironment = ' +
+      JSON.stringify({
+        wsAddress: address,
+        wsPort: wsPort
+      })
+  );
+});
+
+if (redirect !== '') {
+  app.get('/', (req: Request, res: Response) => {
+    res.redirect(`/${redirect}`);
+  });
+}
+
+console.log('Serving OpenSpace web content');
+console.log('  Serving directories: ');
+Object.entries(endpoints).forEach((pair) => {
+  console.log(`    ${pair[0]} : ${pair[1]}`);
+});
+console.log(`  Http Port: ${httpPort}`);
+console.log(`  WebSocket Address: ${wsAddress}`);
+console.log(`  WebSocket Port: ${wsPort}`);
+
+if (autoClose) {
+  // Use WebSocket connection to OpenSpace process to detect when it closes
+  const ws = new WebSocket(`ws://${openSpaceAddress}:${wsPort}`);
+
+  // Connect to OpenSpace process
+  ws.on('open', () => {
+    console.log('Connected to local OpenSpace server');
+
+    // Send the API version that we are using
+    ws.send(
+      JSON.stringify({
+        type: 'apiHandshake',
+        apiVersion: {
+          major: 1,
+          minor: 0,
+          patch: 0
+        }
+      })
+    );
+
+    // Notify OpenSpace about which directories that are served
+    ws.send(
+      JSON.stringify({
+        topic: 0,
+        type: 'set',
+        payload: {
+          property: 'Modules.WebGui.ServedDirectories',
+          value: Object.entries(endpoints).flatMap((p) => [p[0], p[1]])
+        }
+      })
+    );
+  });
+
+  // Whenever the contact is lost, kill app
+  ws.on('close', () => {
+    console.log('Lost connection to OpenSpace - Exiting.');
+    server.close();
+    process.exit();
+  });
+
+  ws.on('error', (error: Error) => {
+    console.error(error);
+    console.log(`Connection error: ${error} - Exiting`);
+    server.close();
+    process.exit();
+  });
+}

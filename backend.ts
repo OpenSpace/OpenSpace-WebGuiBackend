@@ -61,6 +61,11 @@ const openSpaceAddress: string = local ? '127.0.0.1' : wsAddress;
 // Setup static HTTP Server
 const app = express();
 
+// Increase JSON limit (e.g., to 50 Megabytes)
+app.use(express.json({ limit: '50mb' }));
+// Increase URL-encoded body limit
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
 const endpoints: Record<string, string> = {};
 try {
   console.log(`Directories: ${directoriesOpt}`);

@@ -18,7 +18,7 @@
     "express": "^5.2.1",
     "extract-zip": "^2.0.1",
     "flatmap": "0.0.3",
-    "multer": "^2.1.1",
+    "multer": "^2.2.0",
     "ws": "^8.20.0"
   },
   "devDependencies": {

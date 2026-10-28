@@ -3,7 +3,6 @@ const { program } = require('commander');
 const express = require('express');
 const WebSocket = require('ws');
 const flatMap = require('flatmap');
-const path = require('path');
 const setupShowbuilderRoutes = require('./showbuilder');
 
 program
@@ -31,8 +30,7 @@ const opts = program.opts();
 const httpPort = opts.httpPort || 4680;
 const wsAddress = opts.wsAddress || '127.0.0.1';
 const wsPort = opts.wsPort || 4682;
-const autoClose = opts.autoClose;
-const local = opts.local;
+const { autoClose, local } = opts;
 const redirect = opts.redirect || 'endpoints';
 const openSpaceAddress = local ? '127.0.0.1' : wsAddress;
 const directories = opts.directories || '[]';
@@ -45,7 +43,7 @@ app.use(express.json({ limit: '50mb' }));
 // Increase URL-encoded body limit
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-let endpoints = {};
+const endpoints = {};
 try {
   console.log('Directories: ', directories);
   const endpointList = JSON.parse(directories);
@@ -117,7 +115,7 @@ app.get('/environment.js', (req, res) => {
     'window.OpenSpaceEnvironment = ' +
       JSON.stringify({
         wsAddress: address,
-        wsPort: wsPort
+        wsPort
       })
   );
 });
@@ -150,7 +148,7 @@ if (autoClose) {
   const ws = new WebSocket('ws://' + openSpaceAddress + ':' + wsPort);
 
   // Connect to OpenSpace process.
-  ws.on('open', (connection) => {
+  ws.on('open', () => {
     console.log('Connected to local OpenSpace server');
 
     ws.send(

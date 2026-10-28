@@ -2,7 +2,6 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs'); // Regular fs for createWriteStream
 const fsp = require('fs').promises; // Promise-based fs for other operations
 const { ZipArchive } = require('archiver');
 const extract = require('extract-zip');
@@ -129,7 +128,7 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
       archive.append(JSON.stringify(jsonData, null, 2), { name: 'data.json' });
 
       // Function to extract image URLs from JSON
-      function extractImageUrls(obj) {
+      const extractImageUrls = (obj) => {
         const urls = new Set();
         JSON.stringify(obj, (key, value) => {
           if (typeof value === 'string' && value.includes('/uploads/')) {
@@ -138,7 +137,7 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
           return value;
         });
         return Array.from(urls);
-      }
+      };
 
       // Get all image URLs from the JSON
       const imageUrls = extractImageUrls(jsonData);
@@ -152,7 +151,7 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
           // Use fsp for access
           await fsp.access(filePath);
           archive.file(filePath, { name: `uploads/${fileName}` });
-        } catch (error) {
+        } catch {
           console.warn(`Warning: Referenced image not found: ${fileName}`);
         }
       }
@@ -240,7 +239,7 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
           projectData = JSON.parse(dataJson);
 
           // Function to fix image URLs
-          function fixImageUrls(obj) {
+          const fixImageUrls = (obj) => {
             if (typeof obj !== 'object' || obj === null) return;
 
             Object.keys(obj).forEach((key) => {
@@ -255,7 +254,7 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
                 fixImageUrls(obj[key]);
               }
             });
-          }
+          };
 
           // Fix image URLs in project data
           fixImageUrls(projectData);
@@ -305,7 +304,7 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
         // Check if the temp directory exists
         try {
           await fsp.access(tempDir);
-        } catch (error) {
+        } catch {
           return res.status(404).json({ error: 'Import session not found or expired' });
         }
 
@@ -340,7 +339,7 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
                 console.log('Found images in root of zip');
                 // Note: we're assigning to a variable that was const
                 // We'll use a different approach
-                let imagesSourceDir = tempDir;
+                const imagesSourceDir = tempDir;
 
                 // Process images if we found any
                 for (const imageName of uploadedImages) {

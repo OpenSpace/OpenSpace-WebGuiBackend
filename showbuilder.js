@@ -4,7 +4,7 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs"); // Regular fs for createWriteStream
 const fsp = require("fs").promises; // Promise-based fs for other operations
-const archiver = require("archiver");
+const { ZipArchive } = require("archiver");
 const extract = require("extract-zip");
 
 // node backend.js --directories '[\"showbuilder\",\"C:/Users/megaf/Documents/OpenSpace/sync/url/showbuilder\",\"showbuilder/uploads\",\"C:/Users/megaf/Documents/OpenSpace/user/showbuilder/uploads\",\"showbuilder/projects\",\"C:/Users/megaf/Documents/OpenSpace/user/showbuilder/projects\"]' -p 5860
@@ -122,7 +122,7 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
       // Set up response headers for download
       res.attachment(zipFileName);
 
-      const archive = archiver("zip", {
+      const archive = new ZipArchive({
         zlib: { level: 9 }, // Maximum compression
       });
 

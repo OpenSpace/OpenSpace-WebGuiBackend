@@ -1,19 +1,21 @@
-const webpack = require("webpack");
-const path = require("path");
-const fs = require("fs");
+const webpack = require('webpack');
+const path = require('path');
+const fs = require('fs');
 
 module.exports = {
   entry: {
-    backend: "./backend.js",
-    showbuilder: "./showbuilder.js",
+    backend: './backend.js',
+    showbuilder: './showbuilder.js'
   },
-  target: "node",
+  target: 'node',
   output: {
-    path: path.join(__dirname, "dist"),
-    filename: "[name].js",
+    path: path.join(__dirname, 'dist'),
+    filename: '[name].js'
   },
   plugins: [
-    new webpack.IgnorePlugin({ resourceRegExp: /^(bufferutil|utf-8-validate)$/ }),
+    new webpack.IgnorePlugin({
+      resourceRegExp: /^(bufferutil|utf-8-validate)$/
+    })
   ],
-  mode: "production",
+  mode: 'production'
 };

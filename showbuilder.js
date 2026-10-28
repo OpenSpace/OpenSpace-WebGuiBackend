@@ -1,17 +1,17 @@
 // fileUpload.js
-const express = require("express");
-const multer = require("multer");
-const path = require("path");
-const fs = require("fs"); // Regular fs for createWriteStream
-const fsp = require("fs").promises; // Promise-based fs for other operations
-const { ZipArchive } = require("archiver");
-const extract = require("extract-zip");
+const express = require('express');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs'); // Regular fs for createWriteStream
+const fsp = require('fs').promises; // Promise-based fs for other operations
+const { ZipArchive } = require('archiver');
+const extract = require('extract-zip');
 
 // node backend.js --directories '[\"showbuilder\",\"C:/Users/megaf/Documents/OpenSpace/sync/url/showbuilder\",\"showbuilder/uploads\",\"C:/Users/megaf/Documents/OpenSpace/user/showbuilder/uploads\",\"showbuilder/projects\",\"C:/Users/megaf/Documents/OpenSpace/user/showbuilder/projects\"]' -p 5860
 const setupShowbuilderRoutes = async (app, endpoints) => {
   if (!endpoints.uploads || !endpoints.projects) {
     console.log(
-      "Required showbuilder endpoints are missing. Skipping showbuilder setup."
+      'Required showbuilder endpoints are missing. Skipping showbuilder setup.'
     );
     return;
   }
@@ -29,24 +29,24 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
       cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
-      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       cb(null, uniqueSuffix + path.extname(file.originalname));
-    },
+    }
   });
 
   // Separate multer instances for different purposes
   const imageUpload = multer({
     storage: imageStorage,
     limits: {
-      fileSize: 5 * 1024 * 1024, // 5MB limit
+      fileSize: 5 * 1024 * 1024 // 5MB limit
     },
     fileFilter: (req, file, cb) => {
-      if (file.mimetype.startsWith("image/")) {
+      if (file.mimetype.startsWith('image/')) {
         cb(null, true);
       } else {
-        cb(new Error("Only image files are allowed!"));
+        cb(new Error('Only image files are allowed!'));
       }
-    },
+    }
   });
 
   // Configure multer for zip uploads
@@ -55,46 +55,42 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
       cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
-      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       cb(null, uniqueSuffix + path.extname(file.originalname));
-    },
+    }
   });
 
   const zipUpload = multer({
     storage: zipStorage,
     limits: {
-      fileSize: 50 * 1024 * 1024, // 50MB limit for zip files
+      fileSize: 50 * 1024 * 1024 // 50MB limit for zip files
     },
     fileFilter: (req, file, cb) => {
       if (
-        file.mimetype === "application/zip" ||
-        file.mimetype === "application/x-zip-compressed"
+        file.mimetype === 'application/zip' ||
+        file.mimetype === 'application/x-zip-compressed'
       ) {
         cb(null, true);
       } else {
-        cb(new Error("Only zip files are allowed!"));
+        cb(new Error('Only zip files are allowed!'));
       }
-    },
+    }
   });
 
   // Upload endpoint
-  app.post(
-    "/showcomposer/api/upload",
-    imageUpload.single("image"),
-    (req, res) => {
-      if (!req.file) {
-        return res.status(400).json({ error: "No file uploaded" });
-      }
-      // console.log("req.file", req.file);
-      res.json({
-        filePath: `/uploads/${req.file.filename}`,
-        fileName: req.file.filename,
-      });
+  app.post('/showcomposer/api/upload', imageUpload.single('image'), (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
     }
-  );
+    // console.log("req.file", req.file);
+    res.json({
+      filePath: `/uploads/${req.file.filename}`,
+      fileName: req.file.filename
+    });
+  });
   // node backend.js -d '["showcomposer","C:\\Users\\megaf\\Documents\\OpenSpace\\sync\\url\\showbuilder","showcomposer/uploads","C:\\Users\\megaf\\Documents\\OpenSpace\\user\\showbuilder\\uploads","showcomposer/projects","C:\\Users\\megaf\\Documents\\OpenSpace\\user\\showbuilder\\projects"]'
   // List all images endpoint
-  app.get("/showcomposer/api/images", async (req, res) => {
+  app.get('/showcomposer/api/images', async (req, res) => {
     try {
       const files = await fsp.readdir(uploadDir);
       const images = files
@@ -102,8 +98,8 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
         .map((file) => `/uploads/${file}`);
       res.json({ images });
     } catch (error) {
-      console.error("Error reading upload directory:", error);
-      res.status(500).json({ error: "Failed to list images" });
+      console.error('Error reading upload directory:', error);
+      res.status(500).json({ error: 'Failed to list images' });
     }
   });
 
@@ -111,32 +107,32 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
   // app.use("/showbuilder/uploads", express.static(uploadDir));
 
   // Modified package endpoint to return zip file directly
-  app.post("/showcomposer/api/package", express.json(), async (req, res) => {
+  app.post('/showcomposer/api/package', express.json(), async (req, res) => {
     try {
       const jsonData = req.body;
-      console.log("JSON Data: ", jsonData);
+      console.log('JSON Data: ', jsonData);
       const zipFileName = `${
-        jsonData.settingsStore.projectName.replace(/ /g, "_") || "project"
+        jsonData.settingsStore.projectName.replace(/ /g, '_') || 'project'
       }-${Date.now()}.zip`;
 
       // Set up response headers for download
       res.attachment(zipFileName);
 
       const archive = new ZipArchive({
-        zlib: { level: 9 }, // Maximum compression
+        zlib: { level: 9 } // Maximum compression
       });
 
       // Pipe archive to the response
       archive.pipe(res);
 
       // Add the JSON file to the zip
-      archive.append(JSON.stringify(jsonData, null, 2), { name: "data.json" });
+      archive.append(JSON.stringify(jsonData, null, 2), { name: 'data.json' });
 
       // Function to extract image URLs from JSON
       function extractImageUrls(obj) {
         const urls = new Set();
         JSON.stringify(obj, (key, value) => {
-          if (typeof value === "string" && value.includes("/uploads/")) {
+          if (typeof value === 'string' && value.includes('/uploads/')) {
             urls.add(value);
           }
           return value;
@@ -149,7 +145,7 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
 
       // Add each referenced image to the zip
       for (const imageUrl of imageUrls) {
-        const fileName = imageUrl.split("/").pop();
+        const fileName = imageUrl.split('/').pop();
         const filePath = path.join(uploadDir, fileName);
 
         try {
@@ -164,101 +160,90 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
       // Finalize the zip file
       await archive.finalize();
     } catch (error) {
-      console.error("Error creating package:", error);
+      console.error('Error creating package:', error);
       // If headers haven't been sent yet, send error response
       if (!res.headersSent) {
-        res.status(500).json({ error: "Failed to create package" });
+        res.status(500).json({ error: 'Failed to create package' });
       }
     }
   });
 
-  app.post(
-    "/showcomposer/api/projects/save",
-    express.json(),
-    async (req, res) => {
-      try {
-        const projectData = req.body;
-        const projectName =
-          projectData.settingsStore.projectName.replace(/ /g, "_") || "project";
-        if (!projectName || !projectData) {
-          return res
-            .status(400)
-            .json({ error: "Project name and data are required." });
-        }
-        const projectFilePath = path.join(projectsDir, `${projectName}.json`);
-        await fsp.writeFile(
-          projectFilePath,
-          JSON.stringify(projectData, null, 2)
-        );
-        res.status(201).json({ message: "Project saved successfully." });
-      } catch (error) {
-        console.error("Error saving project:", error);
-        res.status(500).json({ error: "Failed to save project." });
+  app.post('/showcomposer/api/projects/save', express.json(), async (req, res) => {
+    try {
+      const projectData = req.body;
+      const projectName =
+        projectData.settingsStore.projectName.replace(/ /g, '_') || 'project';
+      if (!projectName || !projectData) {
+        return res.status(400).json({ error: 'Project name and data are required.' });
       }
+      const projectFilePath = path.join(projectsDir, `${projectName}.json`);
+      await fsp.writeFile(projectFilePath, JSON.stringify(projectData, null, 2));
+      res.status(201).json({ message: 'Project saved successfully.' });
+    } catch (error) {
+      console.error('Error saving project:', error);
+      res.status(500).json({ error: 'Failed to save project.' });
     }
-  );
-  app.get("/showcomposer/api/projects", async (req, res) => {
+  });
+  app.get('/showcomposer/api/projects', async (req, res) => {
     try {
       const files = await fsp.readdir(projectsDir);
 
       const projectList = await Promise.all(
         files
-          .filter((file) => file.endsWith(".json"))
+          .filter((file) => file.endsWith('.json'))
           .map(async (file) => {
             const filePath = path.join(projectsDir, file);
             const stats = await fsp.stat(filePath); // Get file statistics
             return {
               filePath: `./projects/${file}`, //this needs to be relative url
-              projectName: path.basename(file, ".json"),
+              projectName: path.basename(file, '.json'),
               lastModified: stats.mtime, // Last modified date
-              created: stats.birthtime, // Created date
+              created: stats.birthtime // Created date
             };
           })
       );
       res.json(projectList);
     } catch (error) {
-      console.error("Error reading projects directory:", error);
-      res.status(500).json({ error: "Failed to list projects." });
+      console.error('Error reading projects directory:', error);
+      res.status(500).json({ error: 'Failed to list projects.' });
     }
   });
 
   app.post(
-    "/showcomposer/api/projects/load",
-    zipUpload.single("file"),
+    '/showcomposer/api/projects/load',
+    zipUpload.single('file'),
     async (req, res) => {
-      const tempId = Date.now() + "_" + Math.round(Math.random() * 1e9);
+      const tempId = Date.now() + '_' + Math.round(Math.random() * 1e9);
       try {
         if (!req.file) {
-          return res.status(400).json({ error: "No zip file uploaded" });
+          return res.status(400).json({ error: 'No zip file uploaded' });
         }
 
         // Create a temporary directory with unique ID for extraction
-        const tempDir = path.join(uploadDir, "temp_" + tempId);
+        const tempDir = path.join(uploadDir, 'temp_' + tempId);
         await fsp.mkdir(tempDir, { recursive: true });
 
         // Extract zip file
         try {
           await extract(req.file.path, { dir: tempDir });
-          console.log("Zip file extracted successfully");
+          console.log('Zip file extracted successfully');
         } catch (extractError) {
-          console.error("Error extracting zip file:", extractError);
-          return res
-            .status(500)
-            .json({ error: "Failed to extract zip file" });
+          console.error('Error extracting zip file:', extractError);
+          return res.status(500).json({ error: 'Failed to extract zip file' });
         }
 
         // Read and parse the data.json file
-        const dataJsonPath = path.join(tempDir, "data.json");
+        const dataJsonPath = path.join(tempDir, 'data.json');
         let projectData;
         try {
-          const dataJson = await fsp.readFile(dataJsonPath, "utf8");
+          const dataJson = await fsp.readFile(dataJsonPath, 'utf8');
           projectData = JSON.parse(dataJson);
-          
+
           // Function to fix image URLs
           function fixImageUrls(obj) {
             if (typeof obj !== 'object' || obj === null) return;
-            
-            Object.keys(obj).forEach(key => {
+
+            Object.keys(obj).forEach((key) => {
               if (typeof obj[key] === 'string') {
                 // Check if it's an image URL
                 if (obj[key].startsWith('/uploads/')) {
@@ -274,13 +259,10 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
 
           // Fix image URLs in project data
           fixImageUrls(projectData);
-          console.log("Fixed image URLs in project data");
-          
+          console.log('Fixed image URLs in project data');
         } catch (error) {
-          console.error("Error parsing data.json:", error);
-          return res
-            .status(500)
-            .json({ error: "Failed to parse data.json" });
+          console.error('Error parsing data.json:', error);
+          return res.status(500).json({ error: 'Failed to parse data.json' });
         }
 
         // Add temp directory ID to project data for reference
@@ -292,43 +274,39 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
         // Send back the project data with temp ID
         res.json(projectData);
       } catch (error) {
-        console.error("Error processing uploaded project:", error);
+        console.error('Error processing uploaded project:', error);
         // Clean up temp directory if it exists
-        const tempDir = path.join(uploadDir, "temp_" + tempId);
+        const tempDir = path.join(uploadDir, 'temp_' + tempId);
         if (tempDir) {
-          await fsp
-            .rm(tempDir, { recursive: true, force: true })
-            .catch(console.error);
+          await fsp.rm(tempDir, { recursive: true, force: true }).catch(console.error);
         }
         // Clean up uploaded file if it exists
         if (req.file && req.file.path) {
           await fsp.unlink(req.file.path).catch(console.error);
         }
-        res.status(500).json({ error: "Failed to process uploaded project" });
+        res.status(500).json({ error: 'Failed to process uploaded project' });
       }
     }
   );
 
   // New endpoint to confirm or reject an import
   app.post(
-    "/showcomposer/api/projects/confirm-import",
+    '/showcomposer/api/projects/confirm-import',
     express.json(),
     async (req, res) => {
       try {
         const { tempId, confirm } = req.body;
         if (!tempId) {
-          return res.status(400).json({ error: "Missing temporary import ID" });
+          return res.status(400).json({ error: 'Missing temporary import ID' });
         }
 
-        const tempDir = path.join(uploadDir, "temp_" + tempId);
+        const tempDir = path.join(uploadDir, 'temp_' + tempId);
 
         // Check if the temp directory exists
         try {
           await fsp.access(tempDir);
         } catch (error) {
-          return res
-            .status(404)
-            .json({ error: "Import session not found or expired" });
+          return res.status(404).json({ error: 'Import session not found or expired' });
         }
 
         if (confirm) {
@@ -338,33 +316,28 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
           const imageRenames = new Map(); // Track renamed images
 
           // Read the data.json again
-          const dataJsonPath = path.join(tempDir, "data.json");
-          let projectData = JSON.parse(
-            await fsp.readFile(dataJsonPath, "utf8")
-          );
+          const dataJsonPath = path.join(tempDir, 'data.json');
+          let projectData = JSON.parse(await fsp.readFile(dataJsonPath, 'utf8'));
 
           // Check for uploads directory and handle different possible structures
-          const uploadedImagesDir = path.join(tempDir, "uploads");
+          const uploadedImagesDir = path.join(tempDir, 'uploads');
           let uploadedImages = [];
 
           try {
             // Try to read the uploads directory
             uploadedImages = await fsp.readdir(uploadedImagesDir);
           } catch (err) {
-            if (err.code === "ENOENT") {
+            if (err.code === 'ENOENT') {
               // If "uploads" directory doesn't exist, check if images are in root of zip
               const allFiles = await fsp.readdir(tempDir);
               uploadedImages = allFiles.filter(
-                (file) =>
-                  /\.(jpg|jpeg|png|gif)$/i.test(file) && file !== "data.json"
+                (file) => /\.(jpg|jpeg|png|gif)$/i.test(file) && file !== 'data.json'
               );
-              console.log("uploadedImages", uploadedImages);
-              uploadedImages = uploadedImages.map((image) =>
-                image.replace(/\\/g, "/")
-              );
+              console.log('uploadedImages', uploadedImages);
+              uploadedImages = uploadedImages.map((image) => image.replace(/\\/g, '/'));
               // If we found images in root, treat tempDir as the images directory
               if (uploadedImages.length > 0) {
-                console.log("Found images in root of zip");
+                console.log('Found images in root of zip');
                 // Note: we're assigning to a variable that was const
                 // We'll use a different approach
                 let imagesSourceDir = tempDir;
@@ -421,7 +394,7 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
 
             imageRenames.forEach((newName, oldName) => {
               updatedJsonString = updatedJsonString.replace(
-                new RegExp(oldName, "g"),
+                new RegExp(oldName, 'g'),
                 newName
               );
             });
@@ -440,13 +413,11 @@ const setupShowbuilderRoutes = async (app, endpoints) => {
         } else {
           // User rejected import - just delete the temp directory
           await fsp.rm(tempDir, { recursive: true, force: true });
-          res.json({ success: true, message: "Import cancelled" });
+          res.json({ success: true, message: 'Import cancelled' });
         }
       } catch (error) {
-        console.error("Error confirming/rejecting import:", error);
-        res
-          .status(500)
-          .json({ error: "Failed to process import confirmation" });
+        console.error('Error confirming/rejecting import:', error);
+        res.status(500).json({ error: 'Failed to process import confirmation' });
       }
     }
   );
